@@ -126,7 +126,7 @@ export default function Page(){
     const s=localStorage.getItem("tr2r_set");if(s){const o=JSON.parse(s);setSlMult(o.slMult);setRiskPct(o.riskPct);setBalance(o.balance);}const lb=localStorage.getItem("tr2r_lastbackup");if(lb)setLastBackup(parseInt(lb,10)||0);
     const sv=localStorage.getItem("tr2r_systems");
     if(sv){const arr=JSON.parse(sv) as Sys[];setSystems(arr);const a=arr[0];setSysId(a?a.id:"");setPairId(a&&a.pairs[0]?a.pairs[0].id:"");}
-    else{const sys:Sys={id:uid(),name:"System 1",created:Date.now(),tools:emptyTools(),pairs:[{id:uid(),name:"JPM",created:Date.now(),trades:SAMPLE.map(x=>({...x,id:uid()}))}]};setSystems([sys]);setSysId(sys.id);setPairId(sys.pairs[0].id);}
+    else{const sys:Sys={id:uid(),name:"My system",created:Date.now(),tools:emptyTools(),pairs:[]};setSystems([sys]);setSysId(sys.id);setPairId("");}
   }catch(e){}setLoaded(true);},[]);
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_systems",JSON.stringify(systems));},[systems,loaded]);
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_set",JSON.stringify({slMult,riskPct,balance}));},[slMult,riskPct,balance,loaded]);
