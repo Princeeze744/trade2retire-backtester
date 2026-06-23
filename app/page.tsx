@@ -362,8 +362,17 @@ export default function Page(){
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn" onClick={backup}>Backup</button>
         <label className="btn" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
-        {session&&<span className="note" style={{margin:0,alignSelf:"center"}}>{cloudMsg||session.user.email}</span>}
-        {session&&<button className="btn" onClick={logout}>Log out</button>}
+        {session&&<div style={{position:"relative",alignSelf:"center"}}>
+          <button className="btn" onClick={()=>setAcctOpen(o=>!o)} title={session.user.email} aria-label="Account menu">
+            <span style={{display:"inline-flex",width:22,height:22,borderRadius:999,alignItems:"center",justifyContent:"center",background:"linear-gradient(92deg,var(--cyan),var(--indigo))",color:"#04121f",fontWeight:700,fontSize:11}}>{(session.user.email||"?").slice(0,1).toUpperCase()}</span>
+            <span style={{maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cloudMsg||"Account"}</span>
+          </button>
+          {acctOpen&&<div className="results" style={{left:"auto",right:0,minWidth:220}}>
+            <div className="ritem mut" style={{justifyContent:"flex-start",cursor:"default"}}>{session.user.email}</div>
+            <div className="ritem" onClick={()=>{setAcctOpen(false);backup();}}><span>Download a backup</span><span className="rk">json</span></div>
+            <div className="ritem" onClick={()=>{setAcctOpen(false);logout();}}><span>Log out</span><span className="rk">bye</span></div>
+          </div>}
+        </div>}
       </div>
     </div>
 
