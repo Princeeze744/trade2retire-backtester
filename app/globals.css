@@ -134,6 +134,10 @@ select{
 [id^="sec-"]{scroll-margin-top:96px}
 .mut{color:var(--muted)}
 .onlymobile{display:none}
+.formerr{margin-top:12px;padding:10px 13px;border-radius:var(--radius-sm);font-size:13px;color:#fecaca;background:rgba(248,113,113,.10);border:1px solid rgba(248,113,113,.42);animation:shake .4s ease-out}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.formerr{animation:none}}
+.iconbtn:focus-visible,a:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(34,211,238,.4)}
 @media (max-width:640px){.onlydesktop{display:none !important}.onlymobile{display:block}}
 .search input{width:100%}
 .results{position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:60;max-height:360px;overflow:auto;padding:6px;

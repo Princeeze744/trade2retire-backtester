@@ -158,7 +158,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -308,9 +308,9 @@ export default function Page(){
   const importFile=(e:React.ChangeEvent<HTMLInputElement>)=>{const file=e.target.files&&e.target.files[0];if(!file)return;const fr=new FileReader();fr.onload=()=>setImportText(String(fr.result||""));fr.readAsText(file);e.target.value="";};
   const runImport=()=>{if(!activePair)return;const r=parseCSV(importText);if(!r.ok){alert("No valid rows found. Each line needs at least date,dir,sl - check the format.");return;}updatePair(p=>({...p,trades:[...p.trades,...r.trades]}));setImportText("");alert("Imported "+r.ok+" trade(s)"+(r.bad?(" - skipped "+r.bad+" line(s) that could not be read"):"")+" into "+activePair.name+".");};
   const set=(k:string,v:any)=>setForm((p:any)=>({...p,[k]:v}));
-  const submit=()=>{if(!activePair){alert("Create a pair first.");return;}const sl=parseFloat(form.sl)||0;if(!sl){alert("Enter the SL in pips.");return;}
+  const submit=()=>{if(!activePair){setFormErr("Create a pair first, then add trades to it.");return;}const sl=parseFloat(form.sl)||0;if(!sl){setFormErr("Enter the stop loss in pips - it sets the risk for the trade.");return;}if(!form.date){setFormErr("Pick a date so this trade is counted in your monthly and seasonality views.");return;}setFormErr("");
     const t:Trade={id:editId||uid(),date:form.date,dir:form.dir==="SELL"?"SELL":"BUY",sl,slHit:form.slHit==="Yes",exit:parseFloat(form.exit)||0,mfe:parseFloat(form.mfe)||0,notes:form.notes||""};
-    updatePair(p=>({...p,trades:editId?p.trades.map(x=>x.id===editId?t:x):[...p.trades,t]}));setEditId(null);setForm({...blank,dir:form.dir});};
+    updatePair(p=>({...p,trades:editId?p.trades.map(x=>x.id===editId?t:x):[...p.trades,t]}));setEditId(null);setForm({...blank,dir:form.dir});setFormErr("");};
   const edit=(t:Trade)=>{setEditId(t.id);setForm({date:t.date,dir:t.dir,sl:String(t.sl),slHit:t.slHit?"Yes":"No",exit:String(t.exit),mfe:String(t.mfe),notes:t.notes});window.scrollTo({top:0,behavior:"smooth"});};
   const del=(id:string)=>updatePair(p=>({...p,trades:p.trades.filter(x=>x.id!==id)}));
   const exportCSV=()=>{if(!activePair)return;const head=["date","dir","sl_pips","sl_hit","exit_tp2","mfe","notes"];
@@ -467,6 +467,7 @@ export default function Page(){
         {editId&&<button className="btn" onClick={()=>{setEditId(null);setForm(blank);}}>Cancel</button>}
       </div>
       <div className="row" style={{marginTop:10}}><button className="btn" onClick={renamePair}>Rename pair</button><button className="btn" onClick={exportCSV}>Export CSV</button><button className="btn danger" onClick={deletePair}>Delete pair</button></div>
+      {formErr&&<div className="formerr" role="alert">{formErr}</div>}
       <div className="note">SL hit = Yes means both entries lose the full SL. Exit/TP2 = 0 means Entry 2 ended at breakeven. MFE/TP3 = furthest price ran.</div>
     </div>
 
@@ -626,7 +627,7 @@ export default function Page(){
       <div style={{display:isOpen("issues")?"block":"none"}}>
         <div className="note" style={{marginTop:0}}>These rows look inconsistent and may quietly skew your stats. Fix each one so the numbers stay honest.</div>
         <div className="scroll"><table className="tbl"><thead><tr><th className="l">#</th><th className="l">Date</th><th>Dir</th><th className="l">What to check</th><th className="l"></th></tr></thead>
-          <tbody>{issues.map((x,k)=>(<tr key={k}><td className="l">{x.i+1}</td><td className="l">{x.t.date||"(none)"}</td><td><span className={"pill "+(x.t.dir==="BUY"?"buy":"sell")}>{x.t.dir}</span></td><td className="l">{x.msg}</td><td className="l"><button className="iconbtn" onClick={()=>edit(x.t)}>fix</button></td></tr>))}</tbody>
+          <tbody>{issues.map((x,k)=>(<tr key={k}><td className="l">{x.i+1}</td><td className="l">{x.t.date||"(none)"}</td><td><span className={"pill "+(x.t.dir==="BUY"?"buy":"sell")}>{x.t.dir}</span></td><td className="l">{x.msg}</td><td className="l"><button className="iconbtn" aria-label="Fix this flagged trade" onClick={()=>edit(x.t)}>fix</button></td></tr>))}</tbody>
         </table></div>
       </div>
     </div>}
@@ -649,7 +650,7 @@ export default function Page(){
           <td className={d.e1>=0?"win":"loss"}>{f1(d.e1)}</td><td className={d.e2>=0?"win":"loss"}>{f1(d.e2)}</td>
           <td className={d.net>=0?"win":"loss"}>{f1(d.net)}</td><td className={d.r>=0?"win":"loss"}>{f2(d.r)}</td>
           <td className={d.usd>=0?"win":"loss"}>{Math.round(d.usd).toLocaleString()}</td>
-          <td className="l"><button className="iconbtn" onClick={()=>edit(t)}>edit</button><button className="iconbtn" onClick={()=>del(t.id)}>del</button></td></tr>))}</tbody>
+          <td className="l"><button className="iconbtn" aria-label="Edit this trade" onClick={()=>edit(t)}>edit</button><button className="iconbtn" aria-label="Delete this trade" onClick={()=>del(t.id)}>del</button></td></tr>))}</tbody>
       </table></div>
       </div>
     </div>
