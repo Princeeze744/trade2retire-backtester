@@ -158,7 +158,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -360,8 +360,15 @@ export default function Page(){
         <button className="btn" onClick={()=>collapseAll(true)}>Collapse</button>
         <button className="btn" onClick={()=>collapseAll(false)}>Expand</button>
         <button className="btn" onClick={newSystem}>+ System</button>
-        <button className="btn" onClick={backup}>Backup</button>
-        <label className="btn" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
+        <button className="btn onlydesktop" onClick={backup}>Backup</button>
+        <label className="btn onlydesktop" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
+        <div className="onlymobile" style={{position:"relative",flex:"1 1 calc(33.333% - 7px)"}}>
+          <button className="btn" style={{width:"100%"}} onClick={()=>setMoreOpen(o=>!o)} aria-label="More options">More</button>
+          {moreOpen&&<div className="results" style={{left:"auto",right:0,minWidth:200}}>
+            <div className="ritem" onClick={()=>{setMoreOpen(false);backup();}}><span>Download a backup</span><span className="rk">json</span></div>
+            <label className="ritem" style={{cursor:"pointer"}}><span>Restore from file</span><span className="rk">json</span><input type="file" accept=".json" onChange={e=>{setMoreOpen(false);restore(e);}} style={{display:"none"}}/></label>
+          </div>}
+        </div>
         {session&&<div style={{position:"relative",alignSelf:"center"}}>
           <button className="btn" onClick={()=>setAcctOpen(o=>!o)} title={session.user.email} aria-label="Account menu">
             <span style={{display:"inline-flex",width:22,height:22,borderRadius:999,alignItems:"center",justifyContent:"center",background:"linear-gradient(92deg,var(--cyan),var(--indigo))",color:"#04121f",fontWeight:700,fontSize:11}}>{(session.user.email||"?").slice(0,1).toUpperCase()}</span>
