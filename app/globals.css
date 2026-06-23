@@ -156,16 +156,18 @@ svg.eq text{font-family:'JetBrains Mono',monospace}
 @media (max-width:640px){
   :root{--gap:10px}
   .wrap{padding:14px 12px 56px;gap:12px}
-  .topbar{flex-direction:column;align-items:stretch;gap:8px;top:0;padding:11px 12px}
-  .topbar .row{justify-content:flex-start !important;gap:8px}
+  .topbar{flex-direction:column;align-items:stretch;gap:10px;top:0;padding:12px}
+  .topbar .row{justify-content:center !important;gap:7px;flex:initial !important}
   .brand h1{font-size:20px;letter-spacing:-.02em}
   .brand p{display:none}
   .field{flex:1 1 100%}
   .field.sm{flex:1 1 calc(50% - var(--gap))}
   .btn{flex:1 1 auto}
-  .topbar .row .btn{flex:0 1 auto;padding:8px 12px;font-size:12.5px;min-height:40px}
-  .topbar .search{flex:1 1 100% !important;max-width:none !important}
-  .topbar .search input{min-height:40px}
+  .topbar .row .btn{flex:1 1 calc(33.333% - 7px);min-width:0;padding:9px 8px;font-size:12.5px;min-height:42px;white-space:nowrap}
+  .topbar .search{flex:1 1 100% !important;max-width:none !important;order:-1}
+  .topbar .search input{min-height:42px}
+  .topbar .row>div[style*="position:relative"]{flex:1 1 calc(33.333% - 7px);align-self:auto !important}
+  .topbar .row>div[style*="position:relative"]>.btn{width:100%;flex:1 1 auto}
   .grid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
   .tile{min-height:68px;padding:11px 13px}
   .tile .v{font-size:18px}
