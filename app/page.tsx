@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "./lib/supabaseClient";
 
 type Trade={id:string;date:string;dir:"BUY"|"SELL";sl:number;slHit:boolean;exit:number;mfe:number;notes:string};
 type Tools={atr:string;baseline:string;c1:string;c2:string;volume:string;exit:string;continuation:string;notes:string};
@@ -110,6 +111,46 @@ function CountUp({text}:{text:string}){
   const shown=hasComma?Math.round(val).toLocaleString():val.toFixed(decimals);
   return <>{m[1]}{shown}{m[3]}</>;
 }
+function AuthGate(){
+  const [mode,setMode]=useState<"login"|"signup">("login");
+  const [email,setEmail]=useState("");const [pw,setPw]=useState("");
+  const [busy,setBusy]=useState(false);const [err,setErr]=useState("");const [msg,setMsg]=useState("");
+  const submit=async()=>{
+    setErr("");setMsg("");
+    if(!email||!pw){setErr("Enter your email and password.");return;}
+    if(pw.length<6){setErr("Password must be at least 6 characters.");return;}
+    setBusy(true);
+    try{
+      if(mode==="signup"){
+        const {data,error}=await supabase.auth.signUp({email,password:pw});
+        if(error)setErr(error.message);
+        else if(!data.session)setMsg("Account made. If it does not log you in, turn off Confirm email in Supabase, then log in.");
+        else setMsg("Welcome.");
+      }else{
+        const {error}=await supabase.auth.signInWithPassword({email,password:pw});
+        if(error)setErr(error.message);
+      }
+    }catch(e:any){setErr(e.message||"Something went wrong.");}
+    setBusy(false);
+  };
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:200,background:"linear-gradient(180deg,#070d1a,#0b1426)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div className="panel" style={{maxWidth:400,width:"100%"}}>
+        <h2 style={{marginBottom:6}}>Trade2Retire Academy</h2>
+        <div className="note" style={{marginTop:0,marginBottom:16}}>{mode==="login"?"Log in to reach your systems on any device.":"Create an account - your systems save to the cloud and follow you everywhere."}</div>
+        <div className="field" style={{marginBottom:10}}><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com"/></div>
+        <div className="field" style={{marginBottom:14}}><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="at least 6 characters" onKeyDown={e=>{if(e.key==="Enter")submit();}}/></div>
+        {err&&<div className="note" style={{color:"#f87171",marginTop:0,marginBottom:10}}>{err}</div>}
+        {msg&&<div className="note" style={{color:"#34d399",marginTop:0,marginBottom:10}}>{msg}</div>}
+        <button className="btn primary" style={{width:"100%"}} onClick={submit} disabled={busy}>{busy?"Please wait...":(mode==="login"?"Log in":"Create account")}</button>
+        <div className="note" style={{textAlign:"center",marginTop:14}}>
+          {mode==="login"?"New here? ":"Already have an account? "}
+          <button className="iconbtn" onClick={()=>{setMode(mode==="login"?"signup":"login");setErr("");setMsg("");}}>{mode==="login"?"Create an account":"Log in"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function Page(){
   const [systems,setSystems]=useState<Sys[]>([]);
   const [sysId,setSysId]=useState("");const [pairId,setPairId]=useState("");
@@ -117,7 +158,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -130,6 +171,41 @@ export default function Page(){
   }catch(e){}setLoaded(true);},[]);
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_systems",JSON.stringify(systems));},[systems,loaded]);
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_set",JSON.stringify({slMult,riskPct,balance}));},[slMult,riskPct,balance,loaded]);
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data}:any)=>{setSession(data.session||null);setAuthReady(true);});
+    const r=supabase.auth.onAuthStateChange((_e:any,s:any)=>{setSession(s||null);});
+    return ()=>{try{r.data.subscription.unsubscribe();}catch(e){}};
+  },[]);
+  useEffect(()=>{
+    if(!session){cloudLoaded.current=false;return;}
+    let cancel=false;setCloudMsg("Loading your data...");
+    supabase.from("user_state").select("data").eq("user_id",session.user.id).maybeSingle().then(({data,error}:any)=>{
+      if(cancel)return;
+      if(error){setCloudMsg("Cloud error");return;}
+      if(data&&data.data&&Array.isArray(data.data.systems)){
+        setSystems(data.data.systems);
+        const st=data.data.set;if(st){setSlMult(st.slMult||1.5);setRiskPct(st.riskPct||1);setBalance(st.balance||10000);}
+        const a=data.data.systems[0];setSysId(a?a.id:"");setPairId(a&&a.pairs[0]?a.pairs[0].id:"");
+      }else{
+        const seed:Sys={id:uid(),name:"My system",created:Date.now(),tools:emptyTools(),pairs:[]};
+        setSystems([seed]);setSysId(seed.id);setPairId("");
+        supabase.from("user_state").upsert({user_id:session.user.id,data:{systems:[seed],set:{slMult,riskPct,balance}},updated_at:new Date().toISOString()}).then(()=>{});
+      }
+      cloudLoaded.current=true;setCloudMsg("Synced");setTimeout(()=>{if(!cancel)setCloudMsg("");},1400);
+    });
+    return ()=>{cancel=true;};
+  },[session]);
+  useEffect(()=>{
+    if(!session||!cloudLoaded.current)return;
+    setCloudMsg("Saving...");
+    const h=setTimeout(()=>{
+      supabase.from("user_state").upsert({user_id:session.user.id,data:{systems,set:{slMult,riskPct,balance}},updated_at:new Date().toISOString()}).then(({error}:any)=>{
+        setCloudMsg(error?"Save failed":"Saved");setTimeout(()=>setCloudMsg(""),1200);
+      });
+    },800);
+    return ()=>clearTimeout(h);
+  },[systems,slMult,riskPct,balance,session]);
+  const logout=async()=>{try{await supabase.auth.signOut();}catch(e){}cloudLoaded.current=false;setSystems([]);setSysId("");setPairId("");try{localStorage.removeItem("tr2r_systems");}catch(e){}};
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_lastbackup",String(lastBackup));},[lastBackup,loaded]);
 
   const riskUSD=(riskPct/100)*balance;
@@ -263,6 +339,7 @@ export default function Page(){
 
   return (
   <div className="wrap">
+    {authReady && !session && <AuthGate/>}
     <div className="topbar">
       <div className="brand"><h1>Trade2Retire Academy <span className="tag">Backtester</span></h1>
         <p>Systems and pairs - all-pairs and all-systems dashboards - sortable trades - R-multiple histogram - Monte Carlo - TP2 optimizer</p></div>
@@ -285,6 +362,8 @@ export default function Page(){
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn" onClick={backup}>Backup</button>
         <label className="btn" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
+        {session&&<span className="note" style={{margin:0,alignSelf:"center"}}>{cloudMsg||session.user.email}</span>}
+        {session&&<button className="btn" onClick={logout}>Log out</button>}
       </div>
     </div>
 
