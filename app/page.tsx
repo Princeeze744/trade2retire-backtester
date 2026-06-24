@@ -20,6 +20,7 @@ const SECTIONS:{id:string;key?:string;label:string;hint:string;sc?:"pair"|"syste
  {id:"sec-activity",key:"activity",label:"Trades per week / month (all pairs)",hint:"all pairs combined frequency cadence how many trades per week per month",sc:"system"},
  {id:"sec-season",key:"season",label:"Seasonality",hint:"day of week month of year"},
  {id:"sec-rmult",key:"hist",label:"R-multiple distribution",hint:"histogram shape of edge"},
+ {id:"sec-robust",key:"robust",label:"Edge robustness check",hint:"concentration outlier direction bias one good run lucky broad edge years stocks consistent"},
  {id:"sec-montecarlo",key:"mc",label:"Monte Carlo",hint:"simulation luck range robust"},
  {id:"sec-rrsim",key:"rrsim",label:"If we used 1:3 - full stats",hint:"risk reward target simulator what if scenario fixed take profit complete stats win"},
  {id:"sec-runner",key:"e2",label:"Entry 2 runner stats",hint:"exit breakeven runner leg banked scratched left on table second position"},
@@ -121,6 +122,30 @@ function computeRR(trades:Trade[],slMult:number,R:number){
     e2exp:total?e2net/total:0,exp:total?combR/total:0,combR,netPips,
     hitOfAll:total?hit/total:0,missOfAll:total?miss/total:0,lossOfAll:total?L/total:0};
 }
+function computeRobust(trades:Trade[],slMult:number,riskUSD:number){
+  const total=trades.length;
+  const ds=trades.map(t=>({t,d:deriveTrade(t,slMult,riskUSD)}));
+  const rs=ds.map(x=>x.d.r);
+  const netR=rs.reduce((a,b)=>a+b,0);
+  const sorted=rs.slice().sort((a,b)=>b-a);
+  const sum=(a:number[])=>a.reduce((x,y)=>x+y,0);
+  const top1=sum(sorted.slice(0,1)),top3=sum(sorted.slice(0,3)),top5=sum(sorted.slice(0,5));
+  const share=(x:number)=>netR>0?x/netR:0;
+  const dir=(d:"BUY"|"SELL")=>{const arr=trades.filter(t=>t.dir===d);const dd=arr.map(t=>deriveTrade(t,slMult,riskUSD).r);const w=arr.filter(t=>!t.slHit).length;return{count:arr.length,wins:w,winRate:arr.length?w/arr.length:0,netR:sum(dd),exp:arr.length?sum(dd)/arr.length:0};};
+  const longs=dir("BUY"),shorts=dir("SELL");
+  const yg:{[y:string]:number[]}={};ds.forEach(x=>{if(!x.t.date)return;const y=x.t.date.slice(0,4);(yg[y]=yg[y]||[]).push(x.d.r);});
+  const years=Object.keys(yg).sort().map(y=>({y,count:yg[y].length,netR:sum(yg[y])}));
+  const posYears=years.filter(y=>y.netR>0).length;
+  const worstYear=years.length?years.reduce((a,b)=>b.netR<a.netR?b:a,years[0]):{y:"-",netR:0,count:0};
+  const flags:{tone:string;msg:string}[]=[];
+  if(total<30)flags.push({tone:"warn",msg:"Small sample - "+total+" trades. Treat all of this as a hypothesis to forward-test, not proof of an edge."});
+  if(netR>0&&share(top3)>=0.6)flags.push({tone:"warn",msg:Math.round(share(top3)*100)+"% of your net R came from just 3 trades. Remove those and the edge may be thin - it leans on a few outliers."});
+  if(netR>0){const dom=longs.netR>=netR*0.85?"long (BUY)":shorts.netR>=netR*0.85?"short (SELL)":"";if(dom)flags.push({tone:"warn",msg:"Almost all your positive expectancy came from "+dom+" trades. In a trending market that can be the trend itself, not the system - check it holds in the other direction."});}
+  if(years.length===1)flags.push({tone:"warn",msg:"Only one calendar year here. You cannot yet separate the edge from that year's market conditions - test across a flat or down year before trusting it."});
+  if(years.length>=2&&posYears<years.length)flags.push({tone:"info",msg:"Profitable in "+posYears+" of "+years.length+" years. Worst was "+worstYear.y+" at "+(worstYear.netR>=0?"+":"")+worstYear.netR.toFixed(2)+"R. Surviving a down year is part of the edge."});
+  if(!flags.length)flags.push({tone:"good",msg:"No major concentration flags - profit is spread across trades, directions and time. That is what a real edge looks like. Keep forward-testing to confirm."});
+  return{total,netR,top1,top3,top5,top1Share:share(top1),top3Share:share(top3),top5Share:share(top5),longs,shorts,years,posYears,worstYear,flags};
+}
 function buildEq(e:number[]){const w=600,h=130,p=8;if(!e.length)return{path:"",zero:h-p};const mn=Math.min(0,...e),mx=Math.max(0,...e),rng=(mx-mn)||1;
   const X=(i:number)=>e.length<2?w/2:p+(i/(e.length-1))*(w-2*p);const Y=(v:number)=>h-p-((v-mn)/rng)*(h-2*p);
   return{path:e.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" "),zero:Y(0)};}
@@ -187,7 +212,7 @@ export default function Page(){
   const [sysId,setSysId]=useState("");const [pairId,setPairId]=useState("");
   const [sysOv,setSysOv]=useState(false);const [pairOv,setPairOv]=useState(false);const [scope,setScope]=useState<"pair"|"system">("pair");
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
-  const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true});
+  const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true,robust:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
   const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
@@ -255,7 +280,7 @@ export default function Page(){
 
   const vTrades=useMemo(()=>{const base=scope==="system"&&activeSys?activeSys.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]):(activePair?activePair.trades:[]);return base.slice().sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);},[scope,activeSys,activePair]);
   const vstats=useMemo(()=>computeStats(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
-  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick),[vTrades,slMult,rrPick]);
+  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick),[vTrades,slMult,rrPick]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
   const vhist=useMemo(()=>computeHist(vstats.Rs,0.5),[vstats]);
   const monthly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,7)),[vTrades,slMult,riskUSD]);
   const weekly=useMemo(()=>{const g:{[k:string]:number}={};vTrades.forEach(t=>{const k=weekKey(t.date);if(!k)return;g[k]=(g[k]||0)+1;});return Object.keys(g).sort().map(k=>({k,count:g[k]}));},[vTrades]);
@@ -648,6 +673,24 @@ export default function Page(){
       </div>
     </div>}
 
+        {vrob.total>0&&<div id="sec-robust" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>Edge robustness check - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("robust")}>{isOpen("robust")?"hide":"show"}</button></h2>
+      <div style={{display:isOpen("robust")?"block":"none"}}>
+        <div className="note" style={{marginTop:0,marginBottom:10}}>Is this a broad edge, or did it ride a few lucky trades, one direction, or one good year? This reads your recorded data from a different angle - concentration, direction and time - so you do not mistake a strong market for a strong system.</div>
+        <div className="grid">{([["Net R",f2(vrob.netR),vrob.netR],["Best single trade",f2(vrob.top1)+"R"],["Top trade share of net",pc(vrob.top1Share)],["Top 3 share of net",pc(vrob.top3Share)],["Top 5 share of net",pc(vrob.top5Share)],["Profitable years",vrob.posYears+" of "+vrob.years.length]] as [string,string,number?][]).map(([k,v,cc])=>(<div className="tile" key={k}><div className="k">{k}</div><div className={"v"+(typeof cc==="number"?(cc>=0?" green":" red"):"")} style={{fontSize:18}}>{v}</div></div>))}</div>
+        <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:"#93a1b8",margin:"16px 0 6px"}}>Edge by direction</div>
+        <div className="scroll"><table className="tbl"><thead><tr><th className="l">Direction</th><th>Trades</th><th>Win %</th><th>Net R</th><th>Expectancy R</th></tr></thead>
+          <tbody>
+            <tr><td className="l">Long (BUY)</td><td>{vrob.longs.count}</td><td>{pc(vrob.longs.winRate)}</td><td className={vrob.longs.netR>=0?"win":"loss"}>{f2(vrob.longs.netR)}</td><td className={vrob.longs.exp>=0?"win":"loss"}>{f2(vrob.longs.exp)}</td></tr>
+            <tr><td className="l">Short (SELL)</td><td>{vrob.shorts.count}</td><td>{pc(vrob.shorts.winRate)}</td><td className={vrob.shorts.netR>=0?"win":"loss"}>{f2(vrob.shorts.netR)}</td><td className={vrob.shorts.exp>=0?"win":"loss"}>{f2(vrob.shorts.exp)}</td></tr>
+          </tbody></table></div>
+        {vrob.years.length>0&&<><div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:"#93a1b8",margin:"16px 0 6px"}}>Edge by year</div>
+        <div className="scroll"><table className="tbl"><thead><tr><th className="l">Year</th><th>Trades</th><th>Net R</th></tr></thead>
+          <tbody>{vrob.years.map(y=>(<tr key={y.y}><td className="l">{y.y}</td><td>{y.count}</td><td className={y.netR>=0?"win":"loss"}>{f2(y.netR)}</td></tr>))}</tbody></table></div></>}
+        <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:8}}>
+          {vrob.flags.map((fl,i)=>(<div key={i} style={{padding:"11px 14px",borderRadius:10,fontSize:13,lineHeight:1.55,color:"#cbd5e1",background:"rgba(255,255,255,.03)",borderLeft:"3px solid "+(fl.tone==="warn"?"#fbbf24":fl.tone==="good"?"#34d399":"#64748b")}}>{fl.msg}</div>))}
+        </div>
+      </div>
+    </div>}
     {vstats.total>0&&<div id="sec-montecarlo" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>Monte Carlo simulation - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("mc")}>{isOpen("mc")?"hide":"show"}</button></h2>
       <div style={{display:isOpen("mc")?"block":"none"}}>
       <div className="row" style={{marginBottom:10}}><button className="btn primary" onClick={()=>setMc(computeMC(vstats.Rs,1000))}>Run 1000 shuffles</button>{mc&&<button className="btn" onClick={()=>setMc(null)}>Clear</button>}<span className="note" style={{margin:0}}>Reshuffles the order of your {vstats.total} trades 1000 times to show the range of outcomes luck alone could produce.</span></div>
