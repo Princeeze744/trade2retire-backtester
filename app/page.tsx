@@ -106,18 +106,21 @@ function computeEntry2(trades:Trade[]){
     netPips,netR,exp:total?netR/total:0,beAvgMfe:be?beMfe/be:0,beAvgMfeR:be?beMfeR/be:0,
     bankedPct:total?banked/total:0,bePct:total?be/total:0,lostPct:total?lost/total:0};
 }
-function computeRR(trades:Trade[],slMult:number,R:number){
+function computeRR(trades:Trade[],slMult:number,R:number,mode:"strict"|"be"){
   const wins=trades.filter(t=>!t.slHit),losses=trades.filter(t=>t.slHit),total=trades.length,L=losses.length;
   let hit=0,miss=0;wins.forEach(t=>{if(t.mfe>=R*t.sl)hit++;else miss++;});
   const e1R=wins.length*(1/slMult);
-  const e2R=hit*R;
-  const combR=e1R-L+e2R-L;
+  // Entry 2: hit target banks +R. A miss costs a full -1R in strict mode, or 0 if breakeven protected it.
+  const e2R = mode==="be" ? (hit*R) : (hit*R - miss);
+  const combR=(e1R-L)+(e2R-L);
   const e2net=e2R-L;
   const lossPips=losses.reduce((a,t)=>a+t.sl,0);
   const winTP1=wins.reduce((a,t)=>a+t.sl/slMult,0);
-  const e2pips=wins.reduce((a,t)=>a+(t.mfe>=R*t.sl?R*t.sl:0),0)-lossPips;
+  const e2bankPips=wins.reduce((a,t)=>a+(t.mfe>=R*t.sl?R*t.sl:0),0);
+  const e2missPips = mode==="be" ? 0 : -lossPips;
+  const e2pips=(e2bankPips - lossPips) + e2missPips;
   const netPips=(winTP1-lossPips)+e2pips;
-  return{R,total,wins:wins.length,losses:L,hit,miss,
+  return{R,mode,total,wins:wins.length,losses:L,hit,miss,
     hitPct:wins.length?hit/wins.length:0,
     e2exp:total?e2net/total:0,exp:total?combR/total:0,combR,netPips,
     hitOfAll:total?hit/total:0,missOfAll:total?miss/total:0,lossOfAll:total?L/total:0};
@@ -214,7 +217,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true,robust:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [rrMode,setRrMode]=useState<"strict"|"be">("strict");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -280,7 +283,7 @@ export default function Page(){
 
   const vTrades=useMemo(()=>{const base=scope==="system"&&activeSys?activeSys.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]):(activePair?activePair.trades:[]);return base.slice().sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);},[scope,activeSys,activePair]);
   const vstats=useMemo(()=>computeStats(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
-  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick),[vTrades,slMult,rrPick]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
+  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick,rrMode),[vTrades,slMult,rrPick,rrMode]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
   const vhist=useMemo(()=>computeHist(vstats.Rs,0.5),[vstats]);
   const monthly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,7)),[vTrades,slMult,riskUSD]);
   const weekly=useMemo(()=>{const g:{[k:string]:number}={};vTrades.forEach(t=>{const k=weekKey(t.date);if(!k)return;g[k]=(g[k]||0)+1;});return Object.keys(g).sort().map(k=>({k,count:g[k]}));},[vTrades]);
@@ -704,14 +707,19 @@ export default function Page(){
       </div>
     </div>}
 
-        {vrr.total>0&&<div id="sec-rrsim" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>If we used 1 : {rrPick} - full stats - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("rrsim")}>{isOpen("rrsim")?"hide":"show"}</button></h2>
+        {vrr.total>0&&<div id="sec-rrsim" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>If we used 1 : {rrPick} {rrMode==="be"?"with breakeven":"no breakeven"} - full stats - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("rrsim")}>{isOpen("rrsim")?"hide":"show"}</button></h2>
       <div style={{display:isOpen("rrsim")?"block":"none"}}>
         <div className="note" style={{marginTop:0,marginBottom:10}}>Pick a target and see exactly how the whole backtest would have gone with Entry 2 aiming for it instead of breakeven. Target hit means price reached {rrPick}x the stop (from your MFE), so the runner banks {rrPick}R. Missed means it fell short - the breakeven stop scratches it for zero. Lost means the stop loss took out both entries.</div>
-        <div className="row" style={{marginBottom:12}}>
+        <div className="row" style={{marginBottom:10}}>
           {RR.map(r=>(<button key={r} className={"btn"+(rrPick===r?" primary":"")} onClick={()=>setRrPick(r)}>1 : {r}</button>))}
         </div>
+        <div className="row" style={{marginBottom:12}}>
+          <button className={"btn"+(rrMode==="strict"?" primary":"")} onClick={()=>setRrMode("strict")}>No breakeven (target or stop)</button>
+          <button className={"btn"+(rrMode==="be"?" primary":"")} onClick={()=>setRrMode("be")}>Breakeven + 1:{rrPick} target</button>
+        </div>
+        <div className="note" style={{marginTop:0,marginBottom:10}}>{rrMode==="be"?"Breakeven protected: the runner goes to breakeven, then aims for 1:"+rrPick+". A miss that comes back scratches for zero - it is not a full loss. Only a stop hit before breakeven loses.":"No breakeven: the runner aims straight for 1:"+rrPick+". If it misses and reverses it gives back a full stop. This is the strict, conservative reading."}</div>
         <div className="segbar"><div style={{width:(vrr.hitOfAll*100)+"%",background:"#22c55e"}}></div><div style={{width:(vrr.missOfAll*100)+"%",background:"#64748b"}}></div><div style={{width:(vrr.lossOfAll*100)+"%",background:"#ef4444"}}></div></div>
-        <div className="seglegend"><span><i style={{background:"#22c55e"}}></i>Target hit {vrr.hit} ({pc(vrr.hitOfAll)})</span><span><i style={{background:"#64748b"}}></i>Missed, scratched {vrr.miss} ({pc(vrr.missOfAll)})</span><span><i style={{background:"#ef4444"}}></i>Lost {vrr.losses} ({pc(vrr.lossOfAll)})</span></div>
+        <div className="seglegend"><span><i style={{background:"#22c55e"}}></i>Target hit {vrr.hit} ({pc(vrr.hitOfAll)})</span><span><i style={{background:"#64748b"}}></i>{rrMode==="be"?"Missed, scratched (BE)":"Missed, gave back stop"} {vrr.miss} ({pc(vrr.missOfAll)})</span><span><i style={{background:"#ef4444"}}></i>Lost {vrr.losses} ({pc(vrr.lossOfAll)})</span></div>
         <div className="grid">{([["Total trades",String(vrr.total)],["Runner hit 1:"+rrPick,vrr.hit+" ("+pc(vrr.hitPct)+" of winners)"],["Runner missed",String(vrr.miss)],["SL losses",String(vrr.losses)],["Entry 2 R/trade",f2(vrr.e2exp),vrr.e2exp],["Combined net R",f2(vrr.combR),vrr.combR],["Expectancy R/trade",f2(vrr.exp),vrr.exp],["Net pips",f1(vrr.netPips),vrr.netPips]] as [string,string,number?][]).map(([k,v,cc])=>(<div className="tile" key={k}><div className="k">{k}</div><div className={"v"+(typeof cc==="number"?(cc>=0?" green":" red"):"")} style={{fontSize:18}}>{v}</div></div>))}</div>
         <div className="compareline"><span>Your current breakeven approach: <strong className={vstats.exp>=0?"win":"loss"}>{f2(vstats.exp)}R</strong> per trade</span><span>arrow</span><span>If 1:{rrPick}: <strong className={vrr.exp>=0?"win":"loss"}>{f2(vrr.exp)}R</strong> per trade <strong className={(vrr.exp-vstats.exp)>=0?"win":"loss"}>({(vrr.exp-vstats.exp)>=0?"+":""}{f2(vrr.exp-vstats.exp)}R)</strong></span></div>
         <div className="note">This applies one fixed target to the whole backtest. The optimizer table below scans every ratio 1:1 to 1:6 at once and highlights the best - this panel lets you stand on a single ratio and read its complete story.</div>
