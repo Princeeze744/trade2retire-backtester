@@ -21,6 +21,7 @@ const SECTIONS:{id:string;key?:string;label:string;hint:string;sc?:"pair"|"syste
  {id:"sec-season",key:"season",label:"Seasonality",hint:"day of week month of year"},
  {id:"sec-rmult",key:"hist",label:"R-multiple distribution",hint:"histogram shape of edge"},
  {id:"sec-montecarlo",key:"mc",label:"Monte Carlo",hint:"simulation luck range robust"},
+ {id:"sec-runner",key:"e2",label:"Entry 2 runner stats",hint:"exit breakeven runner leg banked scratched left on table second position"},
  {id:"sec-optimizer",key:"opt",label:"TP2 optimizer",hint:"reward to risk take profit"},
  {id:"sec-import",key:"import",label:"Bulk import CSV",hint:"paste upload trades"},
  {id:"sec-trades",key:"trades",label:"Trades log",hint:"filter sort edit delete"},
@@ -89,6 +90,19 @@ function computeBuckets(trades:Trade[],slMult:number,riskUSD:number,labels:strin
   const groups:Trade[][]=labels.map(()=>[]);
   trades.forEach(t=>{if(!t.date)return;const i=idxFn(t);if(i>=0&&i<labels.length)groups[i].push(t);});
   return labels.map((label,i)=>{const arr=groups[i];const st=computeStats(arr,slMult,riskUSD);return{label,count:arr.length,winRate:st.winRate,netR:st.netR,exp:st.exp,streak:streakOf(arr)};});
+}
+function computeEntry2(trades:Trade[]){
+  const total=trades.length;
+  let banked=0,be=0,lost=0,bankPips=0,bankR=0,netPips=0,netR=0,beMfe=0,beMfeR=0;
+  trades.forEach(t=>{
+    if(t.slHit){lost++;netPips+=-t.sl;netR+=-1;}
+    else{const ex=t.exit||0;netPips+=ex;netR+=t.sl?ex/t.sl:0;
+      if(ex>0){banked++;bankPips+=ex;bankR+=t.sl?ex/t.sl:0;}
+      else{be++;const m=t.mfe||0;beMfe+=m;beMfeR+=t.sl?m/t.sl:0;}}
+  });
+  return{total,banked,be,lost,bankAvgPips:banked?bankPips/banked:0,bankAvgR:banked?bankR/banked:0,
+    netPips,netR,exp:total?netR/total:0,beAvgMfe:be?beMfe/be:0,beAvgMfeR:be?beMfeR/be:0,
+    bankedPct:total?banked/total:0,bePct:total?be/total:0,lostPct:total?lost/total:0};
 }
 function buildEq(e:number[]){const w=600,h=130,p=8;if(!e.length)return{path:"",zero:h-p};const mn=Math.min(0,...e),mx=Math.max(0,...e),rng=(mx-mn)||1;
   const X=(i:number)=>e.length<2?w/2:p+(i/(e.length-1))*(w-2*p);const Y=(v:number)=>h-p-((v-mn)/rng)*(h-2*p);
@@ -224,7 +238,7 @@ export default function Page(){
 
   const vTrades=useMemo(()=>{const base=scope==="system"&&activeSys?activeSys.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]):(activePair?activePair.trades:[]);return base.slice().sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);},[scope,activeSys,activePair]);
   const vstats=useMemo(()=>computeStats(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
-  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);
+  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);
   const vhist=useMemo(()=>computeHist(vstats.Rs,0.5),[vstats]);
   const monthly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,7)),[vTrades,slMult,riskUSD]);
   const weekly=useMemo(()=>{const g:{[k:string]:number}={};vTrades.forEach(t=>{const k=weekKey(t.date);if(!k)return;g[k]=(g[k]||0)+1;});return Object.keys(g).sort().map(k=>({k,count:g[k]}));},[vTrades]);
@@ -630,6 +644,15 @@ export default function Page(){
       </div>
     </div>}
 
+        {ve2.total>0&&<div id="sec-runner" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>Entry 2 - the runner (exit leg) - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("e2")}>{isOpen("e2")?"hide":"show"}</button></h2>
+      <div style={{display:isOpen("e2")?"block":"none"}}>
+        <div className="note" style={{marginTop:0,marginBottom:10}}>Entry 2 only - the second position you let run with the stop moved to breakeven. Scratched means it returned to breakeven for zero, banked means the runner closed in profit, lost means the stop loss took out both entries.</div>
+        <div className="segbar"><div style={{width:(ve2.bankedPct*100)+"%",background:"#22c55e"}}></div><div style={{width:(ve2.bePct*100)+"%",background:"#64748b"}}></div><div style={{width:(ve2.lostPct*100)+"%",background:"#ef4444"}}></div></div>
+        <div className="seglegend"><span><i style={{background:"#22c55e"}}></i>Banked {ve2.banked} ({pc(ve2.bankedPct)})</span><span><i style={{background:"#64748b"}}></i>Scratched {ve2.be} ({pc(ve2.bePct)})</span><span><i style={{background:"#ef4444"}}></i>Lost {ve2.lost} ({pc(ve2.lostPct)})</span></div>
+        <div className="grid">{([["Runner trades",String(ve2.total)],["Banked (won)",ve2.banked+" ("+pc(ve2.bankedPct)+")"],["Scratched (BE)",ve2.be+" ("+pc(ve2.bePct)+")"],["Lost (SL hit)",ve2.lost+" ("+pc(ve2.lostPct)+")"],["Avg pips when banked",f1(ve2.bankAvgPips)+"p"],["Avg R when banked",f2(ve2.bankAvgR)+"R"],["Net pips (Entry 2)",f1(ve2.netPips),ve2.netPips],["Net R (Entry 2)",f2(ve2.netR),ve2.netR],["Expectancy R (Entry 2)",f2(ve2.exp),ve2.exp],["Avg MFE on BE trades",f1(ve2.beAvgMfe)+"p"],["Avg MFE on BE (R)",f2(ve2.beAvgMfeR)+"R"]] as [string,string,number?][]).map(([k,v,cc])=>(<div className="tile" key={k}><div className="k">{k}</div><div className={"v"+(typeof cc==="number"?(cc>=0?" green":" red"):"")} style={{fontSize:18}}>{v}</div></div>))}</div>
+        <div className="note">When Entry 2 scratched at breakeven, price still ran an average of {f1(ve2.beAvgMfe)} pips ({f2(ve2.beAvgMfeR)}R) further before reversing. That is the room the TP2 optimizer below turns into profit by giving the runner a fixed target instead of a tight breakeven stop.</div>
+      </div>
+    </div>}
     {vopt&&<div id="sec-optimizer" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>TP2 Reward-to-Risk Optimizer - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("opt")}>{isOpen("opt")?"hide":"show"}</button></h2>
       <div style={{display:isOpen("opt")?"block":"none"}}>
       {vstats.total>0&&(()=>{const b=vopt.list.reduce((a,o)=>(o.exp>a.exp?o:a),vopt.list[0]);if(!b)return null;return(
