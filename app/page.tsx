@@ -158,7 +158,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -177,11 +177,13 @@ export default function Page(){
     return ()=>{try{r.data.subscription.unsubscribe();}catch(e){}};
   },[]);
   useEffect(()=>{
-    if(!session){cloudLoaded.current=false;return;}
+    if(!session){cloudLoaded.current=false;loadedUser.current="";return;}
+    if(loadedUser.current===session.user.id)return;
+    loadedUser.current=session.user.id;
     let cancel=false;setCloudMsg("Loading your data...");
     supabase.from("user_state").select("data").eq("user_id",session.user.id).maybeSingle().then(({data,error}:any)=>{
       if(cancel)return;
-      if(error){setCloudMsg("Cloud error");return;}
+      if(error){setCloudMsg("Cloud error");loadedUser.current="";return;}
       if(data&&data.data&&Array.isArray(data.data.systems)){
         setSystems(data.data.systems);
         const st=data.data.set;if(st){setSlMult(st.slMult||1.5);setRiskPct(st.riskPct||1);setBalance(st.balance||10000);}
@@ -205,6 +207,7 @@ export default function Page(){
     },800);
     return ()=>clearTimeout(h);
   },[systems,slMult,riskPct,balance,session]);
+  useEffect(()=>{setSel({});},[pairId]);
   const logout=async()=>{try{await supabase.auth.signOut();}catch(e){}cloudLoaded.current=false;setSystems([]);setSysId("");setPairId("");try{localStorage.removeItem("tr2r_systems");}catch(e){}};
   useEffect(()=>{if(loaded)localStorage.setItem("tr2r_lastbackup",String(lastBackup));},[lastBackup,loaded]);
 
@@ -313,6 +316,28 @@ export default function Page(){
     updatePair(p=>({...p,trades:editId?p.trades.map(x=>x.id===editId?t:x):[...p.trades,t]}));setEditId(null);setForm({...blank,dir:form.dir});setFormErr("");};
   const edit=(t:Trade)=>{setEditId(t.id);setForm({date:t.date,dir:t.dir,sl:String(t.sl),slHit:t.slHit?"Yes":"No",exit:String(t.exit),mfe:String(t.mfe),notes:t.notes});window.scrollTo({top:0,behavior:"smooth"});};
   const del=(id:string)=>updatePair(p=>({...p,trades:p.trades.filter(x=>x.id!==id)}));
+  const selIds=Object.keys(sel).filter(k=>sel[k]);
+  const toggleSel=(id:string)=>setSel(s=>({...s,[id]:!s[id]}));
+  const clearSel=()=>setSel({});
+  const selectAllView=()=>{const m:{[id:string]:boolean}={};viewTrades.forEach(x=>{m[x.t.id]=true;});setSel(m);};
+  const transferTrades=(destPairId:string,mode:"move"|"copy")=>{
+    if(!activePair||!activeSys)return;
+    const ids=Object.keys(sel).filter(k=>sel[k]);
+    if(!ids.length){alert("Select at least one trade first.");return;}
+    if(!destPairId){alert("Choose the destination pair from the dropdown.");return;}
+    const moving=activePair.trades.filter(t=>ids.indexOf(t.id)>=0);
+    const dest=activeSys.pairs.find(p=>p.id===destPairId);if(!dest)return;
+    if(!confirm((mode==="move"?"Move ":"Copy ")+moving.length+" trade(s) into "+dest.name+"?"+(mode==="move"?" They will leave "+activePair.name+".":"")))return;
+    const clones=moving.map(t=>({...t,id:uid()}));
+    const curId=activePair.id;
+    updateSys(s=>({...s,pairs:s.pairs.map(p=>{
+      if(p.id===destPairId)return{...p,trades:[...p.trades,...clones]};
+      if(mode==="move"&&p.id===curId)return{...p,trades:p.trades.filter(t=>ids.indexOf(t.id)<0)};
+      return p;
+    })}));
+    clearSel();setMoveTradesTo("");
+    alert((mode==="move"?"Moved ":"Copied ")+moving.length+" trade(s) into "+dest.name+".");
+  };
   const exportCSV=()=>{if(!activePair)return;const head=["date","dir","sl_pips","sl_hit","exit_tp2","mfe","notes"];
     const rows=activePair.trades.map(t=>[t.date,t.dir,t.sl,t.slHit?"Yes":"No",t.exit,t.mfe,(t.notes||"").replace(/[\r\n,]/g," ")]);
     const csv=[head.join(","),...rows.map(r=>r.join(","))].join("\n");
@@ -454,7 +479,7 @@ export default function Page(){
       <div className="panel"><h2>No pairs yet</h2><div className="note">Click "+ New pair" to start backtesting under {activeSys.name}.</div></div>
     ) : (
     <>
-    <div className="panel"><h2>{editId?"Edit trade":"Add trade"} - {activePair.name}</h2>
+    <div className="panel"><h2>{editId?"Edit trade":"Add trade"} <span className="targetpill">recording into {activePair.name}</span></h2>
       <div className="row">
         <div className="field"><label>Date</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></div>
         <div className="field sm"><label>Dir</label><select value={form.dir} onChange={e=>set("dir",e.target.value)}><option>BUY</option><option>SELL</option></select></div>
@@ -639,11 +664,12 @@ export default function Page(){
         <div className="field sm"><label>Year</label><select value={tYear} onChange={e=>setTYear(e.target.value)}><option value="all">All</option>{pairYears.map(y=>(<option key={y} value={y}>{y}</option>))}</select></div>
         <div className="spacer"></div>
         <span className="note" style={{margin:0}}>Showing {viewTrades.length} of {activePair.trades.length}. Tap a column to sort.{tSortKey?" ":""}{tSortKey&&<button className="iconbtn" onClick={()=>{setTSortKey("");setTSortDir(1);}}>clear sort</button>}</span>
+        {selIds.length>0&&<div className="selbar"><span className="selcount"><strong>{selIds.length}</strong> selected</span>{activeSys.pairs.filter(p=>p.id!==pairId).length>0?<><select value={moveTradesTo} onChange={e=>setMoveTradesTo(e.target.value)}><option value="">Choose destination pair...</option>{activeSys.pairs.filter(p=>p.id!==pairId).map(p=>(<option key={p.id} value={p.id}>{p.name}</option>))}</select><button className="btn" onClick={()=>transferTrades(moveTradesTo,"copy")}>Copy to pair</button><button className="btn primary" onClick={()=>transferTrades(moveTradesTo,"move")}>Move to pair</button></>:<span className="note" style={{margin:0}}>Create another pair first to move these into it.</span>}<button className="iconbtn" onClick={clearSel}>clear</button></div>}
       </div>
       <div className="scroll"><table className="tbl">
-        <thead><tr><th className="l">#</th>{sortTh("date","Date")}<th>Dir</th>{sortTh("sl","SL")}<th>TP1</th><th>SL hit</th><th>Exit</th><th>MFE</th><th>E1</th><th>E2</th>{sortTh("net","Net")}{sortTh("r","R")}{sortTh("usd","$")}<th className="l"></th></tr></thead>
+        <thead><tr><th className="l"><input type="checkbox" aria-label="Select all shown" checked={viewTrades.length>0&&viewTrades.every(x=>!!sel[x.t.id])} onChange={e=>e.target.checked?selectAllView():clearSel()}/></th><th className="l">#</th>{sortTh("date","Date")}<th>Dir</th>{sortTh("sl","SL")}<th>TP1</th><th>SL hit</th><th>Exit</th><th>MFE</th><th>E1</th><th>E2</th>{sortTh("net","Net")}{sortTh("r","R")}{sortTh("usd","$")}<th className="l"></th></tr></thead>
         <tbody>{viewTrades.map(({t,i,d})=>(<tr key={t.id}>
-          <td className="l">{i+1}</td><td className="l">{t.date}</td>
+          <td className="l"><input type="checkbox" aria-label="Select trade" checked={!!sel[t.id]} onChange={()=>toggleSel(t.id)}/></td><td className="l">{i+1}</td><td className="l">{t.date}</td>
           <td><span className={"pill "+(t.dir==="BUY"?"buy":"sell")}>{t.dir}</span></td>
           <td>{f1(t.sl)}</td><td>{f1(d.tp1)}</td><td>{t.slHit?"Yes":"No"}</td>
           <td>{t.slHit?"-":f1(t.exit)}</td><td>{t.slHit?"-":f1(t.mfe)}</td>
