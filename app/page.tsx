@@ -210,6 +210,32 @@ function AuthGate(){
     </div>
   );
 }
+function buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult){
+  const total=vstats.total;const cards=[];
+  const exp=vstats.exp, wr=vstats.winRate;
+  let grade="Not ready", gtone="warn", gmsg="";
+  if(total<20){grade="Too early";gtone="warn";gmsg="With "+total+" trades this is a first look, not a verdict. Keep recording - aim for at least 30, ideally 100 or more, before trusting any number here.";}
+  else if(exp<=0){grade="Needs work";gtone="bad";gmsg="Across "+total+" trades your expectancy is "+exp.toFixed(2)+"R - as recorded it is not yet putting money in your pocket. The R:R simulator is your best lever: a fixed target may turn this positive.";}
+  else if(exp<0.15){grade="Fragile edge";gtone="warn";gmsg="Positive at "+exp.toFixed(2)+"R per trade, but thin. It can work, yet small slippage or a rough patch could erase it. Tighten the exit and forward-test before sizing up.";}
+  else if(exp<0.35){grade="Workable edge";gtone="ok";gmsg="A real, usable edge at "+exp.toFixed(2)+"R per trade over "+total+" trades. Solid foundation. Forward-test on small size to confirm it survives live conditions.";}
+  else {grade="Strong edge";gtone="good";gmsg="A strong "+exp.toFixed(2)+"R per trade across "+total+" trades. This is the kind of number that compounds. Protect it: keep risk fixed, follow the rules, do not over-optimise.";}
+  cards.push({tone:gtone,title:"Verdict: "+grade,body:gmsg});
+  if(activity){cards.push({tone:"info",title:"Your workload",body:"This system gave you "+activity.total+" trades - about "+activity.avgMo.toFixed(1)+" a month, "+activity.avgWk.toFixed(1)+" a week. Busiest stretch was "+activity.busiestMonth.count+" in "+activity.busiestMonth.k+". Know this rhythm so live trading does not feel surprising - some months are quiet, and that is normal."});}
+  cards.push({tone:"info",title:"Win rate in context",body:"You win "+Math.round(wr*100)+"% of trades. Win rate alone means little - a 40% system can be a goldmine and an 80% one can bleed. What matters is that winners outweigh losers, which expectancy ("+exp.toFixed(2)+"R) already captures. Do not chase win rate at the cost of expectancy."});
+  if(vopt&&ve2&&ve2.be>0){const best=vopt.list.reduce((a,o)=>o.exp>a.exp?o:a,vopt.list[0]);
+    if(best&&best.exp>exp+0.03){cards.push({tone:"good",title:"Money on the table",body:"Your runner scratched at breakeven "+ve2.be+" times, and on those trades price ran about "+ve2.beAvgMfe.toFixed(0)+" pips further. The optimiser says a fixed 1:"+best.R+" target would lift you from "+exp.toFixed(2)+"R to about "+best.exp.toFixed(2)+"R per trade. This is your single biggest improvement - test it hard."});}
+    else{cards.push({tone:"info",title:"Your exit is well-tuned",body:"The optimiser cannot find a fixed target that clearly beats how you already exit. Good sign - your breakeven management is not leaking much. Leave it rather than over-tinkering."});}}
+  if(vrob){
+    if(vrob.top3Share>=0.6)cards.push({tone:"warn",title:"Leaning on a few trades",body:Math.round(vrob.top3Share*100)+"% of your net R came from just 3 trades. That is concentration risk - remove a couple of lucky outliers and the edge thins. Gather more trades before betting big."});
+    if(vrob.years.length===1)cards.push({tone:"warn",title:"Only one year tested",body:"Everything here is from a single calendar year. You cannot yet tell the system apart from that year's market mood. Test across a flat or losing year before fully trusting it."});
+    else if(vrob.years.length>=2)cards.push({tone:vrob.posYears===vrob.years.length?"good":"info",title:"Holding across time",body:"Profitable in "+vrob.posYears+" of "+vrob.years.length+" years tested. "+(vrob.posYears===vrob.years.length?"Surviving every year is a strong robustness signal.":"Mixed years are normal - what matters is the down years stayed survivable.")});
+    const lo=vrob.longs,sh=vrob.shorts;
+    if(lo.count>0&&sh.count>0){const oneSided=(lo.netR>0&&sh.netR<=0)||(sh.netR>0&&lo.netR<=0);
+      if(oneSided)cards.push({tone:"warn",title:"One direction is carrying you",body:"Your "+(lo.netR>sh.netR?"long":"short")+" trades make money while the other side does not. In a trending market that can be the trend, not the system. Check both directions hold before relying on it in all conditions."});}}
+  if(vstats.maxdd<0)cards.push({tone:"info",title:"Prepare for the dip",body:"Your worst drawdown was "+vstats.maxdd.toFixed(2)+"R. Live, it will feel worse than it reads. Decide now you will keep trading the plan through a stretch like that - that resolve is what separates traders who make it."});
+  cards.push({tone:"good",title:"From your coach",body:total<20?"You have started, and that already puts you ahead of those who only dream. Keep logging honestly - the truth in this data is worth more than any guru. Come back with more trades and we will know far more.":"You did the hard, unglamorous work of testing instead of guessing. Whatever the verdict, respect that. Trade small, trade the rules, protect your capital, let the edge compound. Backtest is a hypothesis - forward-testing is the proof. Go earn it."});
+  return{grade,gtone,cards};
+}
 export default function Page(){
   const [systems,setSystems]=useState<Sys[]>([]);
   const [sysId,setSysId]=useState("");const [pairId,setPairId]=useState("");
@@ -284,7 +310,7 @@ export default function Page(){
   const vTrades=useMemo(()=>{const base=scope==="system"&&activeSys?activeSys.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]):(activePair?activePair.trades:[]);return base.slice().sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);},[scope,activeSys,activePair]);
   const vstats=useMemo(()=>computeStats(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
   const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick,rrMode),[vTrades,slMult,rrPick,rrMode]);
-  const advice=useMemo(()=>buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult),[vstats,vrob,vopt,ve2,activity,monthly,slMult]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
+  const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
   const vhist=useMemo(()=>computeHist(vstats.Rs,0.5),[vstats]);
   const monthly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,7)),[vTrades,slMult,riskUSD]);
   const weekly=useMemo(()=>{const g:{[k:string]:number}={};vTrades.forEach(t=>{const k=weekKey(t.date);if(!k)return;g[k]=(g[k]||0)+1;});return Object.keys(g).sort().map(k=>({k,count:g[k]}));},[vTrades]);
@@ -295,6 +321,7 @@ export default function Page(){
     return{total,first,last,avgWk:total/Math.max(1,days/7),avgMo:total/Math.max(1,days/30.44),busiestMonth:bm,busiestWeek:bw,weeks:weekly.length,months:monthly.length};},[vTrades,monthly,weekly]);
   const quarterly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,4)+" Q"+(Math.floor(((parseInt(t.date.slice(5,7),10)||1)-1)/3)+1)),[vTrades,slMult,riskUSD]);
   const yearly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,4)),[vTrades,slMult,riskUSD]);
+  const advice=useMemo(()=>buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult),[vstats,vrob,vopt,ve2,activity,monthly,slMult]);
 
   const pairYears=useMemo(()=>Array.from(new Set((activePair?activePair.trades:[]).map(t=>t.date.slice(0,4)).filter(Boolean))).sort(),[activePair]);
   const viewTrades=useMemo(()=>{if(!activePair)return [] as {t:Trade;i:number;d:ReturnType<typeof deriveTrade>}[];
