@@ -283,7 +283,8 @@ export default function Page(){
 
   const vTrades=useMemo(()=>{const base=scope==="system"&&activeSys?activeSys.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]):(activePair?activePair.trades:[]);return base.slice().sort((a,b)=>(a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0);},[scope,activeSys,activePair]);
   const vstats=useMemo(()=>computeStats(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
-  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick,rrMode),[vTrades,slMult,rrPick,rrMode]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
+  const vopt=useMemo(()=>computeOpt(vTrades,slMult),[vTrades,slMult]);const ve2=useMemo(()=>computeEntry2(vTrades),[vTrades]);const vrr=useMemo(()=>computeRR(vTrades,slMult,rrPick,rrMode),[vTrades,slMult,rrPick,rrMode]);
+  const advice=useMemo(()=>buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult),[vstats,vrob,vopt,ve2,activity,monthly,slMult]);const vrob=useMemo(()=>computeRobust(vTrades,slMult,riskUSD),[vTrades,slMult,riskUSD]);
   const vhist=useMemo(()=>computeHist(vstats.Rs,0.5),[vstats]);
   const monthly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,7)),[vTrades,slMult,riskUSD]);
   const weekly=useMemo(()=>{const g:{[k:string]:number}={};vTrades.forEach(t=>{const k=weekKey(t.date);if(!k)return;g[k]=(g[k]||0)+1;});return Object.keys(g).sort().map(k=>({k,count:g[k]}));},[vTrades]);
