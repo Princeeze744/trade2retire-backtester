@@ -12,6 +12,7 @@ const PILLARS:[keyof Tools,string][]=[["atr","ATR / Volatility"],["baseline","Ba
 const emptyTools=():Tools=>({atr:"",baseline:"",c1:"",c2:"",volume:"",exit:"",continuation:"",notes:""});
 const SECTIONS:{id:string;key?:string;label:string;hint:string;sc?:"pair"|"system"}[]=[
  {id:"sec-all",label:"All systems combined",hint:"overview totals scorecard"},
+ {id:"sec-advice",label:"Advisory board",hint:"coach verdict advice ready should i use it leaderboard best system best pair compare"},
  {id:"sec-tools",label:"System tools",hint:"rename indicators pillars settings"},
  {id:"sec-pairs",label:"Pairs",hint:"switch pairs list"},
  {id:"sec-dashboard",label:"Dashboard",hint:"stats equity win rate expectancy drawdown"},
@@ -110,7 +111,6 @@ function computeRR(trades:Trade[],slMult:number,R:number,mode:"strict"|"be"){
   const wins=trades.filter(t=>!t.slHit),losses=trades.filter(t=>t.slHit),total=trades.length,L=losses.length;
   let hit=0,miss=0;wins.forEach(t=>{if(t.mfe>=R*t.sl)hit++;else miss++;});
   const e1R=wins.length*(1/slMult);
-  // Entry 2: hit target banks +R. A miss costs a full -1R in strict mode, or 0 if breakeven protected it.
   const e2R = mode==="be" ? (hit*R) : (hit*R - miss);
   const combR=(e1R-L)+(e2R-L);
   const e2net=e2R-L;
@@ -210,8 +210,8 @@ function AuthGate(){
     </div>
   );
 }
-function buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult){
-  const total=vstats.total;const cards=[];
+function buildAdvice(vstats:any,vrob:any,vopt:any,ve2:any,activity:any,monthly:any[],slMult:number){
+  const total=vstats.total;const cards:{tone:string;title:string;body:string}[]=[];
   const exp=vstats.exp, wr=vstats.winRate;
   let grade="Not ready", gtone="warn", gmsg="";
   if(total<20){grade="Too early";gtone="warn";gmsg="With "+total+" trades this is a first look, not a verdict. Keep recording - aim for at least 30, ideally 100 or more, before trusting any number here.";}
@@ -220,9 +220,9 @@ function buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult){
   else if(exp<0.35){grade="Workable edge";gtone="ok";gmsg="A real, usable edge at "+exp.toFixed(2)+"R per trade over "+total+" trades. Solid foundation. Forward-test on small size to confirm it survives live conditions.";}
   else {grade="Strong edge";gtone="good";gmsg="A strong "+exp.toFixed(2)+"R per trade across "+total+" trades. This is the kind of number that compounds. Protect it: keep risk fixed, follow the rules, do not over-optimise.";}
   cards.push({tone:gtone,title:"Verdict: "+grade,body:gmsg});
-  if(activity){cards.push({tone:"info",title:"Your workload",body:"This system gave you "+activity.total+" trades - about "+activity.avgMo.toFixed(1)+" a month, "+activity.avgWk.toFixed(1)+" a week. Busiest stretch was "+activity.busiestMonth.count+" in "+activity.busiestMonth.k+". Know this rhythm so live trading does not feel surprising - some months are quiet, and that is normal."});}
+  if(activity){cards.push({tone:"info",title:"Your workload",body:"This selection gave you "+activity.total+" trades - about "+activity.avgMo.toFixed(1)+" a month, "+activity.avgWk.toFixed(1)+" a week. Busiest stretch was "+activity.busiestMonth.count+" in "+activity.busiestMonth.k+". Know this rhythm so live trading does not feel surprising - some months are quiet, and that is normal."});}
   cards.push({tone:"info",title:"Win rate in context",body:"You win "+Math.round(wr*100)+"% of trades. Win rate alone means little - a 40% system can be a goldmine and an 80% one can bleed. What matters is that winners outweigh losers, which expectancy ("+exp.toFixed(2)+"R) already captures. Do not chase win rate at the cost of expectancy."});
-  if(vopt&&ve2&&ve2.be>0){const best=vopt.list.reduce((a,o)=>o.exp>a.exp?o:a,vopt.list[0]);
+  if(vopt&&ve2&&ve2.be>0){const best=vopt.list.reduce((a:any,o:any)=>o.exp>a.exp?o:a,vopt.list[0]);
     if(best&&best.exp>exp+0.03){cards.push({tone:"good",title:"Money on the table",body:"Your runner scratched at breakeven "+ve2.be+" times, and on those trades price ran about "+ve2.beAvgMfe.toFixed(0)+" pips further. The optimiser says a fixed 1:"+best.R+" target would lift you from "+exp.toFixed(2)+"R to about "+best.exp.toFixed(2)+"R per trade. This is your single biggest improvement - test it hard."});}
     else{cards.push({tone:"info",title:"Your exit is well-tuned",body:"The optimiser cannot find a fixed target that clearly beats how you already exit. Good sign - your breakeven management is not leaking much. Leave it rather than over-tinkering."});}}
   if(vrob){
@@ -243,7 +243,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true,robust:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [showAdvisory,setShowAdvisory]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [rrMode,setRrMode]=useState<"strict"|"be">("strict");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [showAdvisory,setShowAdvisory]=useState(false);const [advScope,setAdvScope]=useState("all");const [advCmpA,setAdvCmpA]=useState("");const [advCmpB,setAdvCmpB]=useState("");const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [rrMode,setRrMode]=useState<"strict"|"be">("strict");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -322,6 +322,26 @@ export default function Page(){
   const quarterly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,4)+" Q"+(Math.floor(((parseInt(t.date.slice(5,7),10)||1)-1)/3)+1)),[vTrades,slMult,riskUSD]);
   const yearly=useMemo(()=>groupStats(vTrades,slMult,riskUSD,t=>t.date.slice(0,4)),[vTrades,slMult,riskUSD]);
   const advice=useMemo(()=>buildAdvice(vstats,vrob,vopt,ve2,activity,monthly,slMult),[vstats,vrob,vopt,ve2,activity,monthly,slMult]);
+  const adviceFor=(trs:Trade[])=>{
+    const st=computeStats(trs,slMult,riskUSD);const op=computeOpt(trs,slMult);const e2=computeEntry2(trs);const rb=computeRobust(trs,slMult,riskUSD);
+    const mo=groupStats(trs,slMult,riskUSD,t=>t.date.slice(0,7));
+    const dated=trs.filter(t=>t.date);let act:any=null;
+    if(dated.length){const sorted=dated.slice().sort((a,b)=>a.date<b.date?-1:1);const days=Math.max(1,Math.round((new Date(sorted[sorted.length-1].date+"T00:00:00").getTime()-new Date(sorted[0].date+"T00:00:00").getTime())/86400000)+1);const bm=mo.reduce((a,m)=>m.count>a.count?m:a,{k:"-",count:0});act={total:dated.length,avgWk:dated.length/Math.max(1,days/7),avgMo:dated.length/Math.max(1,days/30.44),busiestMonth:bm};}
+    return{stats:st,advice:buildAdvice(st,rb,op,e2,act,mo,slMult)};
+  };
+  const leaderboard=useMemo(()=>{
+    const pairRowsAll:any[]=[];const sysRowsAll:any[]=[];
+    systems.forEach(s=>{
+      const sysTrades=s.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]);
+      const ss=computeStats(sysTrades,slMult,riskUSD);
+      sysRowsAll.push({kind:"system",id:s.id,name:s.name,sysName:s.name,total:ss.total,exp:ss.exp,netR:ss.netR,winRate:ss.winRate,maxdd:ss.maxdd,provisional:ss.total<30});
+      s.pairs.forEach(p=>{const ps=computeStats(p.trades,slMult,riskUSD);pairRowsAll.push({kind:"pair",id:p.id,name:p.name,sysName:s.name,total:ps.total,exp:ps.exp,netR:ps.netR,winRate:ps.winRate,maxdd:ps.maxdd,provisional:ps.total<30});});
+    });
+    const rank=(arr:any[])=>arr.slice().sort((a,b)=>{const ap=a.provisional?1:0,bp=b.provisional?1:0;if(ap!==bp)return ap-bp;return b.exp-a.exp;});
+    const pairsRanked=rank(pairRowsAll.filter(r=>r.total>0));
+    const sysRanked=rank(sysRowsAll.filter(r=>r.total>0));
+    return{pairsRanked,sysRanked,bestPair:pairsRanked[0]||null,bestSys:sysRanked[0]||null};
+  },[systems,slMult,riskUSD]);
 
   const pairYears=useMemo(()=>Array.from(new Set((activePair?activePair.trades:[]).map(t=>t.date.slice(0,4)).filter(Boolean))).sort(),[activePair]);
   const viewTrades=useMemo(()=>{if(!activePair)return [] as {t:Trade;i:number;d:ReturnType<typeof deriveTrade>}[];
@@ -376,7 +396,7 @@ export default function Page(){
   const isOpen=(k:string)=>collapsed[k]!==true;
   const toggle=(k:string)=>setCollapsed(c=>({...c,[k]:!c[k]}));
   const collapseAll=(v:boolean)=>{setCollapsed({import:v,perf:v,season:v,hist:v,mc:v,opt:v,trades:v,issues:v});setAllOpen(!v);};
-  const goSection=(id:string,key?:string,sc?:"pair"|"system")=>{if(key)setCollapsed(c=>({...c,[key]:false}));if(id==="sec-all")setAllOpen(true);if(sc)setScope(sc);setQ("");setTimeout(()=>{const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},70);};
+  const goSection=(id:string,key?:string,sc?:"pair"|"system")=>{if(key)setCollapsed(c=>({...c,[key]:false}));if(id==="sec-all")setAllOpen(true);if(id==="sec-advice"){setShowAdvisory(true);setQ("");return;}if(sc)setScope(sc);setQ("");setTimeout(()=>{const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},70);};
   const goSys=(s:Sys)=>{openSys(s);setQ("");setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),60);};
   const goPair=(s:Sys,p:Pair)=>{setSysId(s.id);setPairId(p.id);setSysOv(false);setPairOv(false);setEditId(null);setForm(blank);setQ("");setTimeout(()=>{const el=document.getElementById("sec-dashboard");if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},90);};
   const sortBy=(k:string)=>{if(tSortKey===k){setTSortDir(d=>-d);}else{setTSortKey(k);setTSortDir(1);}};
@@ -471,7 +491,7 @@ export default function Page(){
         </div>
         <button className="btn" onClick={()=>collapseAll(true)}>Collapse</button>
         <button className="btn" onClick={()=>collapseAll(false)}>Expand</button>
-        
+
         <button className="btn advbtn" onClick={()=>setShowAdvisory(true)}>Advisory board</button>
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn onlydesktop" onClick={backup}>Backup</button>
@@ -502,7 +522,7 @@ export default function Page(){
       {allOpen&&<>
         <div className="grid">{([["Systems",String(systems.length)],["Pairs",String(allPairCount)],["Total trades",String(allStats.total)],["Win rate",pc(allStats.winRate)],["Net R",f2(allStats.netR),allStats.netR],["Expectancy R",f2(allStats.exp),allStats.exp],["Account P&L","$"+Math.round(allStats.usd).toLocaleString(),allStats.usd],["Max drawdown R",f2(allStats.maxdd),allStats.maxdd]] as [string,string,number?][]).map(([k,v,c])=>(<div className="tile" key={k}><div className="k">{k}</div><div className={"v"+(typeof c==="number"?(c>=0?" green":" red"):"")}><CountUp text={v}/></div></div>))}</div>
         {(()=>{const e=buildEq(allStats.eq);return(<svg className="eq" viewBox="0 0 600 130" preserveAspectRatio="none"><line x1="0" y1={e.zero} x2="600" y2={e.zero} stroke="#283349" strokeWidth="1"/><path d={e.path} fill="none" stroke="#3b82f6" strokeWidth="2"/></svg>);})()}
-        <div className="note">Everything you have ever recorded, every system and pair, in date order.</div>
+        <div className="note">Everything you have ever recorded, every system and pair, in date order. Tap <strong>Advisory board</strong> up top for the coach verdict and leaderboard.</div>
       </>}
     </div>
 
@@ -645,7 +665,7 @@ export default function Page(){
         {countChart(monthly,true)}
         <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:"#93a1b8",margin:"16px 0 6px"}}>Trades per week</div>
         {countChart(weekly,false)}
-        <div className="note">How many trades the system produced each month and each week. With several pairs under one system, Whole system shows your true workload - the number of setups the whole basket gave you per week and per month.</div>
+        <div className="note">How many trades the system produced each month and each week. With several pairs under one system, All pairs combined shows your true workload - the number of setups the whole basket gave you per week and per month.</div>
       </div>
     </div>}
     {monthly.length>0&&<div id="sec-time" className="panel"><h2 style={{display:"flex",alignItems:"center",gap:10}}>Performance over time - {scopeLabel} <button className="iconbtn" onClick={()=>toggle("perf")}>{isOpen("perf")?"hide":"show"}</button></h2>
@@ -818,15 +838,69 @@ export default function Page(){
     )}
     </>
     )}
-    {showAdvisory&&<div className="advoverlay" onClick={()=>setShowAdvisory(false)}>
+    {showAdvisory&&(()=>{
+      const allT=systems.reduce((a,s)=>a.concat(s.pairs.reduce((x,p)=>x.concat(p.trades),[] as Trade[])),[] as Trade[]);
+      let title="Everything you have recorded";let trs:Trade[]=allT;let compare=false;
+      if(advScope==="all"){trs=allT;title="Everything - all systems and pairs";}
+      else if(advScope==="compare"){compare=true;}
+      else if(advScope.indexOf("sys:")===0){const s=systems.find(x=>x.id===advScope.slice(4));if(s){trs=s.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[]);title="System: "+s.name;}}
+      else if(advScope.indexOf("pair:")===0){const id=advScope.slice(5);let found:Pair|null=null,sn="";systems.forEach(s=>s.pairs.forEach(p=>{if(p.id===id){found=p;sn=s.name;}}));if(found){trs=(found as Pair).trades;title="Pair: "+(found as Pair).name+" ("+sn+")";}}
+      const res=adviceFor(trs);
+      const resolveCmp=(v:string):{name:string;trades:Trade[]}|null=>{
+        if(v.indexOf("sys:")===0){const s=systems.find(x=>x.id===v.slice(4));return s?{name:s.name,trades:s.pairs.reduce((a,p)=>a.concat(p.trades),[] as Trade[])}:null;}
+        if(v.indexOf("pair:")===0){let f:Pair|null=null,sn="";systems.forEach(s=>s.pairs.forEach(p=>{if(p.id===v.slice(5)){f=p;sn=s.name;}}));return f?{name:(f as Pair).name+" ("+sn+")",trades:(f as Pair).trades}:null;}
+        return null;
+      };
+      const A=compare?resolveCmp(advCmpA):null;const B=compare?resolveCmp(advCmpB):null;
+      return(<div className="advoverlay" onClick={()=>setShowAdvisory(false)}>
       <div className="advsheet" onClick={e=>e.stopPropagation()}>
-        <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{scopeLabel||"Your system"}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
-        {advice&&vstats.total>0?<>
-          <div className={"verdict v-"+advice.gtone}><div className="vlabel">Coach verdict</div><div className="vgrade">{advice.grade}</div></div>
-          <div className="advcards">{advice.cards.map((c2:any,i:number)=>(<div key={i} className={"advcard t-"+c2.tone}><div className="at">{c2.title}</div><div className="ab">{c2.body}</div></div>))}</div>
-          <div className="note">This reads only what you have recorded - it is honest, not flattering. It is analysis of your data, not financial advice. The real test is forward-testing on small size before risking serious capital.</div>
-        </>:<div className="note">Record some trades on this pair, or switch Results view to All pairs combined, and the coach will analyse them here.</div>}
+        <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{title}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
+        <div className="row" style={{marginBottom:14}}>
+          <div className="field" style={{flex:"1 1 240px"}}><label>What should the coach analyse?</label>
+            <select value={advScope} onChange={e=>setAdvScope(e.target.value)}>
+              <option value="all">Everything (all systems and pairs)</option>
+              <optgroup label="A whole system">{systems.map(s=>(<option key={s.id} value={"sys:"+s.id}>{s.name} (all its pairs)</option>))}</optgroup>
+              <optgroup label="A single pair">{systems.flatMap(s=>s.pairs.map(p=>(<option key={p.id} value={"pair:"+p.id}>{p.name} - in {s.name}</option>)))}</optgroup>
+              <option value="compare">Compare two...</option>
+            </select>
+          </div>
+          {compare&&<><div className="field" style={{flex:"1 1 200px"}}><label>First</label><select value={advCmpA} onChange={e=>setAdvCmpA(e.target.value)}><option value="">Choose...</option><optgroup label="Systems">{systems.map(s=>(<option key={s.id} value={"sys:"+s.id}>{s.name}</option>))}</optgroup><optgroup label="Pairs">{systems.flatMap(s=>s.pairs.map(p=>(<option key={p.id} value={"pair:"+p.id}>{p.name} ({s.name})</option>)))}</optgroup></select></div>
+          <div className="field" style={{flex:"1 1 200px"}}><label>Second</label><select value={advCmpB} onChange={e=>setAdvCmpB(e.target.value)}><option value="">Choose...</option><optgroup label="Systems">{systems.map(s=>(<option key={s.id} value={"sys:"+s.id}>{s.name}</option>))}</optgroup><optgroup label="Pairs">{systems.flatMap(s=>s.pairs.map(p=>(<option key={p.id} value={"pair:"+p.id}>{p.name} ({s.name})</option>)))}</optgroup></select></div></>}
+        </div>
+
+        {compare?(
+          (A&&B)?(()=>{const ra=adviceFor((A as any).trades),rb=adviceFor((B as any).trades);const winner=ra.stats.exp>=rb.stats.exp?(A as any).name:(B as any).name;return(<>
+            <div className="verdict v-ok"><div className="vlabel">Better expectancy</div><div className="vgrade">{winner}</div></div>
+            <div className="cmpgrid">
+              {[{n:(A as any).name,r:ra},{n:(B as any).name,r:rb}].map((side,i)=>(<div key={i} className="cmpcol"><div className="cmptitle">{side.n}</div>
+                <div className="cmprow"><span>Trades</span><strong>{side.r.stats.total}</strong></div>
+                <div className="cmprow"><span>Expectancy R</span><strong className={side.r.stats.exp>=0?"win":"loss"}>{f2(side.r.stats.exp)}</strong></div>
+                <div className="cmprow"><span>Net R</span><strong className={side.r.stats.netR>=0?"win":"loss"}>{f2(side.r.stats.netR)}</strong></div>
+                <div className="cmprow"><span>Win rate</span><strong>{pc(side.r.stats.winRate)}</strong></div>
+                <div className="cmprow"><span>Max DD R</span><strong className="loss">{f2(side.r.stats.maxdd)}</strong></div>
+                <div className="cmprow"><span>Verdict</span><strong>{side.r.advice.grade}</strong></div>
+              </div>))}
+            </div>
+            <div className="note">Ranked by expectancy (edge per trade). A sample under 30 trades is provisional - more trades, more trust.</div>
+          </>);})():<div className="note">Pick two things to compare above.</div>
+        ):(
+          res.stats.total>0?<>
+            <div className={"verdict v-"+res.advice.gtone}><div className="vlabel">Coach verdict</div><div className="vgrade">{res.advice.grade}</div></div>
+            <div className="advcards">{res.advice.cards.map((c2:any,i:number)=>(<div key={i} className={"advcard t-"+c2.tone}><div className="at">{c2.title}</div><div className="ab">{c2.body}</div></div>))}</div>
+          </>:<div className="note">No trades recorded in this selection yet.</div>
+        )}
+
+        {!compare&&(leaderboard.pairsRanked.length>0||leaderboard.sysRanked.length>0)&&<>
+          <div className="lbhead">Leaderboard</div>
+          {leaderboard.bestPair&&<div className="bestcard"><div className="bestlabel">Best pair</div><div className="bestname">{leaderboard.bestPair.name} <span className="mut">in {leaderboard.bestPair.sysName}</span></div><div className="bestnums"><span className={leaderboard.bestPair.exp>=0?"win":"loss"}>{f2(leaderboard.bestPair.exp)}R exp</span><span className={leaderboard.bestPair.netR>=0?"win":"loss"}>{f2(leaderboard.bestPair.netR)}R net</span><span className="mut">{leaderboard.bestPair.total} trades{leaderboard.bestPair.provisional?" - provisional":""}</span></div></div>}
+          {leaderboard.sysRanked.length>1&&<div className="lbsub">Systems ranked</div>}
+          {leaderboard.sysRanked.length>1&&<div className="scroll"><table className="tbl"><thead><tr><th className="l">#</th><th className="l">System</th><th>Trades</th><th>Expectancy R</th><th>Net R</th><th>Win %</th></tr></thead><tbody>{leaderboard.sysRanked.map((r,i)=>(<tr key={i}><td className="l">{i+1}</td><td className="l">{r.name}{r.provisional?" *":""}</td><td>{r.total}</td><td className={r.exp>=0?"win":"loss"}>{f2(r.exp)}</td><td className={r.netR>=0?"win":"loss"}>{f2(r.netR)}</td><td>{pc(r.winRate)}</td></tr>))}</tbody></table></div>}
+          <div className="lbsub">Pairs ranked</div>
+          <div className="scroll"><table className="tbl"><thead><tr><th className="l">#</th><th className="l">Pair</th><th className="l">System</th><th>Trades</th><th>Expectancy R</th><th>Net R</th><th>Win %</th></tr></thead><tbody>{leaderboard.pairsRanked.map((r,i)=>(<tr key={i}><td className="l">{i+1}</td><td className="l">{r.name}{r.provisional?" *":""}</td><td className="l">{r.sysName}</td><td>{r.total}</td><td className={r.exp>=0?"win":"loss"}>{f2(r.exp)}</td><td className={r.netR>=0?"win":"loss"}>{f2(r.netR)}</td><td>{pc(r.winRate)}</td></tr>))}</tbody></table></div>
+          <div className="note">Ranked by expectancy (truest edge), net R shown beside it. Rows marked * have under 30 trades - treated as provisional so a small hot streak never outranks a proven one.</div>
+        </>}
+        <div className="note">This reads only what you have recorded - honest, not flattering. It is analysis of your data, not financial advice. Forward-test on small size before risking serious capital.</div>
       </div>
-    </div>}
+    </div>);})()}
   </div>);
 }
