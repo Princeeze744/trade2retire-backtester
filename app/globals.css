@@ -139,6 +139,22 @@ select{
 .seglegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
 .compareline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(34,211,238,.06);font-size:13.5px;color:var(--muted)}
 .compareline strong{font-family:'JetBrains Mono',monospace}
+.advisory{border-color:rgba(34,211,238,.35)}
+.advisory::before{background:linear-gradient(90deg,transparent,rgba(34,211,238,.6),rgba(99,102,241,.6),transparent)}
+.verdict{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid var(--border)}
+.verdict .vlabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.verdict .vgrade{font-family:'Space Grotesk',sans-serif;font-size:clamp(22px,4vw,30px);font-weight:700;letter-spacing:-.02em}
+.v-good{background:linear-gradient(180deg,rgba(52,211,153,.16),rgba(52,211,153,.05))} .v-good .vgrade{color:#34d399}
+.v-ok{background:linear-gradient(180deg,rgba(34,211,238,.14),rgba(34,211,238,.04))} .v-ok .vgrade{color:#22d3ee}
+.v-warn{background:linear-gradient(180deg,rgba(251,191,36,.14),rgba(251,191,36,.04))} .v-warn .vgrade{color:#fbbf24}
+.v-bad{background:linear-gradient(180deg,rgba(248,113,113,.14),rgba(248,113,113,.04))} .v-bad .vgrade{color:#f87171}
+.advcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.advcard{padding:13px 15px;border-radius:var(--radius-sm);background:rgba(255,255,255,.03);border:1px solid var(--border-soft);border-left:3px solid var(--muted)}
+.advcard .at{font-weight:600;font-size:13.5px;margin-bottom:5px;color:var(--text)}
+.advcard .ab{font-size:12.5px;line-height:1.6;color:#cbd5e1}
+.advcard.t-good{border-left-color:#34d399} .advcard.t-ok{border-left-color:#22d3ee}
+.advcard.t-warn{border-left-color:#fbbf24} .advcard.t-bad{border-left-color:#f87171} .advcard.t-info{border-left-color:#64748b}
+@media (max-width:640px){.advcards{grid-template-columns:1fr}}
 input[type="checkbox"]{width:16px;height:16px;min-height:0;padding:0;accent-color:var(--cyan);cursor:pointer;flex:0 0 auto}
 .targetpill{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;background:linear-gradient(92deg,var(--cyan),var(--indigo));color:#04121f;vertical-align:middle}
 .selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1 1 100%;margin-top:6px;padding:9px 11px;border:1px solid rgba(34,211,238,.45);background:rgba(34,211,238,.09);border-radius:var(--radius-sm)}
