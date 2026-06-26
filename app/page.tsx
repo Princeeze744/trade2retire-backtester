@@ -217,7 +217,7 @@ export default function Page(){
   const [allOpen,setAllOpen]=useState(true);const [moveTarget,setMoveTarget]=useState("");const [mergeSource,setMergeSource]=useState("");
   const [collapsed,setCollapsed]=useState<{[k:string]:boolean}>({import:true,perf:true,season:true,hist:true,mc:true,opt:true,robust:true});
   const [tDir,setTDir]=useState("all");const [tRes,setTRes]=useState("all");const [tYear,setTYear]=useState("all");const [tSortKey,setTSortKey]=useState("");const [tSortDir,setTSortDir]=useState(1);
-  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [rrMode,setRrMode]=useState<"strict"|"be">("strict");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
+  const [mc,setMc]=useState<ReturnType<typeof computeMC>>(null);const [importText,setImportText]=useState("");const [lastBackup,setLastBackup]=useState(0);const [q,setQ]=useState("");const [acctOpen,setAcctOpen]=useState(false);const [showAdvisory,setShowAdvisory]=useState(false);const [moreOpen,setMoreOpen]=useState(false);const [formErr,setFormErr]=useState("");const [sel,setSel]=useState<{[id:string]:boolean}>({});const [moveTradesTo,setMoveTradesTo]=useState("");const [rrPick,setRrPick]=useState(3);const [rrMode,setRrMode]=useState<"strict"|"be">("strict");const [session,setSession]=useState<any>(null);const [authReady,setAuthReady]=useState(false);const [cloudMsg,setCloudMsg]=useState("");const cloudLoaded=useRef(false);const loadedUser=useRef("");
   const [slMult,setSlMult]=useState(1.5);const [riskPct,setRiskPct]=useState(1);const [balance,setBalance]=useState(10000);
   const blank={date:"",dir:"BUY",sl:"",slHit:"No",exit:"0",mfe:"",notes:""};
   const [form,setForm]=useState<any>(blank);const [editId,setEditId]=useState<string|null>(null);const [loaded,setLoaded]=useState(false);
@@ -423,6 +423,16 @@ export default function Page(){
 
   return (
   <div className="wrap">
+    {showAdvisory&&<div className="advoverlay">
+      <div className="advsheet">
+        <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{scopeLabel||"Your system"}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
+        {advice&&vstats.total>0?<>
+          <div className={"verdict v-"+advice.gtone}><div className="vlabel">Coach verdict</div><div className="vgrade">{advice.grade}</div></div>
+          <div className="advcards">{advice.cards.map((c2:any,i:number)=>(<div key={i} className={"advcard t-"+c2.tone}><div className="at">{c2.title}</div><div className="ab">{c2.body}</div></div>))}</div>
+          <div className="note">This reads only what you have recorded - it is honest, not flattering. It is analysis of your data, not financial advice. The real test is forward-testing on small size before risking serious capital.</div>
+        </>:<div className="note">Record some trades on this pair (or switch Results view to All pairs combined) and the coach will analyse them here.</div>}
+      </div>
+    </div>}
     {authReady && !session && <AuthGate/>}
     <div className="topbar">
       <div className="brand"><h1>Trade2Retire Academy <span className="tag">Backtester</span></h1>
@@ -443,6 +453,7 @@ export default function Page(){
         </div>
         <button className="btn" onClick={()=>collapseAll(true)}>Collapse</button>
         <button className="btn" onClick={()=>collapseAll(false)}>Expand</button>
+        <button className="btn advbtn" onClick={()=>setShowAdvisory(true)}>Advisory board</button>
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn onlydesktop" onClick={backup}>Backup</button>
         <label className="btn onlydesktop" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
