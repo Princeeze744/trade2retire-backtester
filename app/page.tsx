@@ -423,7 +423,7 @@ export default function Page(){
 
   return (
   <div className="wrap">
-    {showAdvisory&&<div className="advoverlay">
+    {false&&showAdvisory&&<div className="advoverlay">
       <div className="advsheet">
         <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{scopeLabel||"Your system"}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
         {advice&&vstats.total>0?<>
@@ -453,7 +453,7 @@ export default function Page(){
         </div>
         <button className="btn" onClick={()=>collapseAll(true)}>Collapse</button>
         <button className="btn" onClick={()=>collapseAll(false)}>Expand</button>
-        <button className="btn advbtn" onClick={()=>setShowAdvisory(true)}>Advisory board</button>
+        
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn onlydesktop" onClick={backup}>Backup</button>
         <label className="btn onlydesktop" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
