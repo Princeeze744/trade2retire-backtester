@@ -423,16 +423,6 @@ export default function Page(){
 
   return (
   <div className="wrap">
-    {false&&showAdvisory&&<div className="advoverlay">
-      <div className="advsheet">
-        <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{scopeLabel||"Your system"}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
-        {advice&&vstats.total>0?<>
-          <div className={"verdict v-"+advice.gtone}><div className="vlabel">Coach verdict</div><div className="vgrade">{advice.grade}</div></div>
-          <div className="advcards">{advice.cards.map((c2:any,i:number)=>(<div key={i} className={"advcard t-"+c2.tone}><div className="at">{c2.title}</div><div className="ab">{c2.body}</div></div>))}</div>
-          <div className="note">This reads only what you have recorded - it is honest, not flattering. It is analysis of your data, not financial advice. The real test is forward-testing on small size before risking serious capital.</div>
-        </>:<div className="note">Record some trades on this pair (or switch Results view to All pairs combined) and the coach will analyse them here.</div>}
-      </div>
-    </div>}
     {authReady && !session && <AuthGate/>}
     <div className="topbar">
       <div className="brand"><h1>Trade2Retire Academy <span className="tag">Backtester</span></h1>
@@ -454,6 +444,7 @@ export default function Page(){
         <button className="btn" onClick={()=>collapseAll(true)}>Collapse</button>
         <button className="btn" onClick={()=>collapseAll(false)}>Expand</button>
         
+        <button className="btn advbtn" onClick={()=>setShowAdvisory(true)}>Advisory board</button>
         <button className="btn" onClick={newSystem}>+ System</button>
         <button className="btn onlydesktop" onClick={backup}>Backup</button>
         <label className="btn onlydesktop" style={{display:"inline-flex"}}>Restore<input type="file" accept=".json" onChange={restore} style={{display:"none"}}/></label>
@@ -799,5 +790,15 @@ export default function Page(){
     )}
     </>
     )}
+    {showAdvisory&&<div className="advoverlay" onClick={()=>setShowAdvisory(false)}>
+      <div className="advsheet" onClick={e=>e.stopPropagation()}>
+        <div className="advhead"><div><div className="advkicker">Advisory board</div><div className="advtitle">{scopeLabel||"Your system"}</div></div><button className="btn" onClick={()=>setShowAdvisory(false)}>Close</button></div>
+        {advice&&vstats.total>0?<>
+          <div className={"verdict v-"+advice.gtone}><div className="vlabel">Coach verdict</div><div className="vgrade">{advice.grade}</div></div>
+          <div className="advcards">{advice.cards.map((c2:any,i:number)=>(<div key={i} className={"advcard t-"+c2.tone}><div className="at">{c2.title}</div><div className="ab">{c2.body}</div></div>))}</div>
+          <div className="note">This reads only what you have recorded - it is honest, not flattering. It is analysis of your data, not financial advice. The real test is forward-testing on small size before risking serious capital.</div>
+        </>:<div className="note">Record some trades on this pair, or switch Results view to All pairs combined, and the coach will analyse them here.</div>}
+      </div>
+    </div>}
   </div>);
 }
